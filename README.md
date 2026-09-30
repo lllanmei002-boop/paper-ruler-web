@@ -4,7 +4,7 @@
 
 ## 在线使用
 
-尚未绑定自定义域名。GitHub Pages 发布完成后，地址将写在这里。
+公开访问地址：https://lllanmei002-boop.github.io/paper-ruler-web/
 
 ## 本地使用
 
