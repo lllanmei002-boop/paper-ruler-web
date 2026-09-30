@@ -30,33 +30,21 @@
     mergePunctuation: false
   };
 
-  const sampleBlocks = [
-    block("title", "关于申请参加青年人才交流计划的申请书"),
-    block("body", "尊敬的项目评审委员会："),
-    block("body", "本人现就申请参加2026年度青年人才交流计划有关事项说明如下。过去三年，我主要从事社区数字化服务与公共文化项目运营，参与完成居民数字素养课程、社区阅读空间改造和跨机构志愿服务协作等工作，积累了项目策划、组织协调和公开表达方面的实践经验。"),
-    block("h1", "一、申请理由"),
-    block("body", "随着基层公共服务不断向数字化、精细化方向发展，我希望系统学习项目设计、资源整合和成果评估方法，并把成熟经验带回所在社区。此次交流计划与我的职业方向高度契合，也能够为后续公共文化项目提供更扎实的方法支撑。"),
-    block("body", "在工作过程中，我逐渐意识到，单点活动能够带来短期参与，但只有建立稳定机制、形成可复用流程，才能让服务真正持续下去。因此，我希望通过本次交流，重点了解不同地区在居民参与、志愿服务记录和项目绩效评价方面的做法。"),
-    block("h1", "二、个人条件"),
-    block("body", "本人具备五年基层公共服务相关经验，曾负责三个年度项目的立项、执行与结项工作，能够独立完成需求调研、方案撰写、预算控制及多方沟通。2024年，我参与设计的“社区共读计划”累计服务居民一千二百余人次，项目满意度达到96%。"),
-    block("body", "补充材料可发送至 example@paper-grid.test，相关项目编号为 A-2026-001。个别说明曾使用半角符号(如括号和逗号), 这里用于演示稿纸纠错。"),
-    block("h2", "（一）专业能力"),
-    block("body", "熟悉社区项目全流程管理，能够使用常用办公软件完成数据整理、演示汇报和项目材料编写；具备良好的文字表达能力，多次承担工作总结、活动方案及对外说明材料的主要撰写工作。"),
-    block("h2", "（二）学习意愿"),
-    block("body", "我已初步了解本次交流计划的课程框架，并整理了社区数字服务、青年志愿协作和项目成效评估三个希望重点研究的问题。如获入选，我将按要求全程参与，按时完成各项任务，并在结束后提交可落地的实践方案。"),
-    block("h1", "三、申请承诺"),
-    block("body", "如本次申请获得批准，我将合理安排本职工作，确保学习与实践时间；严格遵守交流计划的各项管理规定，珍惜交流机会，主动分享经验，维护团队协作氛围。交流结束后，我愿意参与成果分享，并将所学内容转化为面向社区居民的具体服务。"),
-    block("body", "以上申请内容真实有效。恳请评审委员会审核，并给予参加本次交流计划的机会。"),
-    block("body", "特此申请，请予批准。"),
+  const tutorialBlocks = [
+    block("title", "新手教学示例"),
+    block("body", "尊敬的评审老师："),
+    block("body", "本人申请参加青年人才交流计划，希望在项目中学习项目设计、资源整合与成果评估方法。"),
+    block("body", "本次申请材料包含（“，”）连续标点示例，方便查看同格压缩效果。"),
+    block("body", "我会认真完成各项学习任务，并在结束后提交可落地的实践方案。"),
     block("signature", "申请人：李明"),
-    block("date", "2026年9月29日")
+    block("date", "2026年9月30日")
   ];
 
   const state = {
     settings: { ...DEFAULT_SETTINGS },
     blocks: [],
-    fileName: "青年人才交流计划申请书.docx",
-    fileType: "示例文档",
+    fileName: "未导入文档",
+    fileType: "空白",
     layouts: null,
     issues: [],
     currentPage: 0,
@@ -72,6 +60,7 @@
 
   const elements = {};
   let segments = null;
+  let tutorialReturnFocus = null;
   let crcTable;
 
   document.addEventListener("DOMContentLoaded", initialize);
@@ -80,7 +69,7 @@
     cacheElements();
     bindEvents();
     syncControls();
-    loadSample(false);
+    renderAll();
     requestAnimationFrame(() => fitToWindow(false));
   }
 
@@ -97,7 +86,7 @@
       "rawScroll","suggestedScroll","rawPages","suggestedPages","rawPageCount","suggestedPageCount","suggestedPaneTitle",
       "zoomOutBtn","zoomInBtn","zoomLabel","fitBtn","prevPageBtn","nextPageBtn","currentPageLabel","pageCountLabel",
       "capacityLabel","correctionOptions","issueFilter","issuePanelTitle","issueList","toastRegion","loadingOverlay",
-      "loadingTitle","loadingText","printPageStyle","customSizeFields"
+      "loadingTitle","loadingText","printPageStyle","customSizeFields","emptyTutorialBtn","tutorialOverlay","tutorialDialog","tutorialCloseBtn","tutorialUseBtn","tutorialDismissBtn","tutorialMiniPreview"
     ].forEach((id) => { elements[id] = document.getElementById(id); });
   }
 
@@ -161,7 +150,13 @@
         showToast("稿纸预览与格式检查已更新。", "success");
       } catch (error) { showToast(`无法生成稿纸：${friendlyError(error)}`, "error"); }
     });
-    elements.sampleBtn.addEventListener("click", () => loadSample(true));
+    elements.sampleBtn.addEventListener("click", () => openTutorial(elements.sampleBtn));
+    elements.emptyTutorialBtn.addEventListener("click", () => openTutorial(elements.emptyTutorialBtn));
+    elements.tutorialCloseBtn.addEventListener("click", closeTutorial);
+    elements.tutorialDismissBtn.addEventListener("click", closeTutorial);
+    elements.tutorialUseBtn.addEventListener("click", loadTutorialSample);
+    elements.tutorialOverlay.addEventListener("click", (event) => { if (event.target === elements.tutorialOverlay) closeTutorial(); });
+    document.addEventListener("keydown", handleTutorialKeydown);
     elements.clearBtn.addEventListener("click", clearDocument);
 
     document.querySelectorAll("[data-setting]").forEach((control) => {
@@ -360,14 +355,63 @@
     } finally { hideLoading(); }
   }
 
-  function loadSample(showMessage) {
-    state.blocks = prepareBlocks(sampleBlocks);
-    state.fileName = "青年人才交流计划申请书.docx";
+  function openTutorial(trigger) {
+    tutorialReturnFocus = trigger || document.activeElement;
+    renderTutorialPreview();
+    elements.tutorialOverlay.classList.remove("is-hidden");
+    elements.tutorialOverlay.setAttribute("aria-hidden", "false");
+    document.body.classList.add("tutorial-open");
+    window.setTimeout(() => elements.tutorialDialog.focus(), 0);
+  }
+
+  function closeTutorial() {
+    if (elements.tutorialOverlay.classList.contains("is-hidden")) return;
+    elements.tutorialOverlay.classList.add("is-hidden");
+    elements.tutorialOverlay.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("tutorial-open");
+    if (tutorialReturnFocus && typeof tutorialReturnFocus.focus === "function") tutorialReturnFocus.focus();
+    tutorialReturnFocus = null;
+  }
+
+  function handleTutorialKeydown(event) {
+    if (elements.tutorialOverlay.classList.contains("is-hidden")) return;
+    if (event.key === "Escape") { event.preventDefault(); closeTutorial(); return; }
+    if (event.key !== "Tab") return;
+    const focusable = Array.from(elements.tutorialDialog.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])'))
+      .filter((node) => !node.disabled && node.offsetParent !== null);
+    if (!focusable.length) return;
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
+
+  function renderTutorialPreview() {
+    const previewBlocks = prepareBlocks(tutorialBlocks);
+    const savedMerge = state.settings.mergePunctuation;
+    state.settings.mergePunctuation = true;
+    const layout = buildLayout(previewBlocks, "suggested");
+    state.settings.mergePunctuation = savedMerge;
+    const metrics = getGridMetrics();
+    const page = layout.pages[0];
+    elements.tutorialMiniPreview.textContent = "";
+    if (!page) return;
+    const pageNode = renderGridPage(page, metrics, "suggested", [], { blocks: previewBlocks });
+    const availableWidth = Math.max(180, elements.tutorialMiniPreview.clientWidth - 18);
+    const availableHeight = Math.max(220, elements.tutorialMiniPreview.clientHeight - 14);
+    const zoom = Math.min(0.31, availableWidth / metrics.widthPx, availableHeight / metrics.heightPx);
+    pageNode.style.zoom = String(zoom);
+    elements.tutorialMiniPreview.appendChild(pageNode);
+  }
+
+  function loadTutorialSample() {
+    state.blocks = prepareBlocks(tutorialBlocks);
+    state.fileName = "新手教学示例.docx";
     state.fileType = "示例文档";
     state.currentPage = 0;
     state.selectedIssue = "";
     renderAll();
-    if (showMessage) showToast("已载入含纠错示例的申请书。");
+    closeTutorial();
+    showToast("已载入新手教学示例。");
   }
 
   function clearDocument() {
@@ -777,7 +821,9 @@
     target.style.zoom = String(state.zoom);
   }
 
-  function renderGridPage(page, metrics, mode, issues) {
+  function renderGridPage(page, metrics, mode, issues = [], options = {}) {
+    const renderBlocks = options.blocks || state.blocks;
+    const selectedIssue = options.selectedIssue ?? state.selectedIssue;
     const pageNode = document.createElement("div");
     pageNode.className = "grid-page";
     pageNode.dataset.pageIndex = String(page.index); pageNode.dataset.mode = mode;
@@ -811,9 +857,9 @@
         if (col === 0) cell.classList.add("left-edge");
         const issueIds = issueMap.get(`${row}:${col}`) || [];
         if (issueIds.length) {
-          const firstIssue = state.issues.find((item) => item.id === issueIds[0]);
+          const firstIssue = issues.find((item) => item.id === issueIds[0]);
           cell.classList.add(firstIssue?.severity === "warning" ? "issue-warning" : "issue-error");
-          if (issueIds.includes(state.selectedIssue)) cell.classList.add("selected");
+          if (issueIds.includes(selectedIssue)) cell.classList.add("selected");
           cell.dataset.issueIds = issueIds.join(" ");
         }
         cell.style.left = `${col * metrics.cellPx}px`; cell.style.top = `${row * metrics.cellPx}px`;
@@ -840,7 +886,7 @@
       const clusterSize = Math.min(metrics.cellPx * 0.3, metrics.cellPx / Math.max(2, Math.ceil(Array.from(token.text).length / 2) * 1.18));
       const size = token.kind === "punctuationCluster" ? clusterSize : token.kind === "asciiPair" ? metrics.cellPx * 0.47 : token.width === 2 ? metrics.cellPx * 0.67 : metrics.cellPx * 0.68;
       tokenNode.style.fontSize = `${size}px`; tokenNode.style.fontFamily = state.settings.gridFont;
-      tokenNode.style.fontWeight = token.blockIndex >= 0 && ["title","h1","h2"].includes(state.blocks[token.blockIndex]?.type) ? "700" : "400";
+      tokenNode.style.fontWeight = token.blockIndex >= 0 && ["title","h1","h2"].includes(renderBlocks[token.blockIndex]?.type) ? "700" : "400";
       if (token.kind === "punctuationCluster") {
         const glyphs = Array.from(token.text);
         tokenNode.style.gridTemplateColumns = "repeat(2, 1fr)";

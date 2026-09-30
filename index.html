@@ -24,7 +24,7 @@
       <div class="topbar-note"><span class="privacy-dot"></span>文档仅在浏览器本地处理</div>
       <div class="top-actions">
         <button class="btn btn-quiet" id="clearBtn" type="button">清空</button>
-        <button class="btn btn-quiet" id="sampleBtn" type="button">载入示例</button>
+        <button class="btn btn-quiet" id="sampleBtn" type="button">新手教学</button>
         <div class="menu-wrap">
           <button class="btn btn-secondary" id="printBtn" type="button" aria-haspopup="true" aria-expanded="false">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6z"/></svg>
@@ -122,7 +122,10 @@
             <div class="empty-grid" aria-hidden="true"></div>
             <h2>导入文档，检查稿纸落格</h2>
             <p>系统会用相同内容生成原样稿纸与规范建议，并标出标点可能跑到行首、行尾或跨格的位置。</p>
-            <button class="btn btn-primary" id="emptyImportBtn" type="button">选择文档</button>
+            <div class="empty-actions">
+              <button class="btn btn-primary" id="emptyImportBtn" type="button">选择文档</button>
+              <button class="btn btn-secondary" id="emptyTutorialBtn" type="button">查看新手教学</button>
+            </div>
           </div>
 
           <div class="comparison-layout is-hidden" id="comparisonLayout">
@@ -257,6 +260,36 @@
     </main>
   </div>
 
+  <div class="tutorial-overlay is-hidden" id="tutorialOverlay" aria-hidden="true">
+    <section class="tutorial-dialog" id="tutorialDialog" role="dialog" aria-modal="true" aria-labelledby="tutorialTitle" tabindex="-1">
+      <header class="tutorial-head">
+        <div>
+          <span class="eyebrow">新手教学</span>
+          <h2 id="tutorialTitle">先看一遍，再导入自己的申请书</h2>
+        </div>
+        <button class="tutorial-close" id="tutorialCloseBtn" type="button" aria-label="关闭新手教学">×</button>
+      </header>
+      <div class="tutorial-layout">
+        <div class="tutorial-copy">
+          <p>稿纸尺会同时生成“原样落格”和“规范建议”，帮助你检查标点是否跑到行首、行尾或跨格。</p>
+          <ol>
+            <li><b>导入或粘贴</b><span>支持 DOCX、TXT、Markdown、HTML。</span></li>
+            <li><b>对照两套稿纸</b><span>红格是原样风险，绿格是建议调整。</span></li>
+            <li><b>开启连续标点合格</b><span>需要时把连续符号收进同一格。</span></li>
+            <li><b>导出或打印</b><span>可导出原样和两种建议版本。</span></li>
+          </ol>
+          <div class="tutorial-actions">
+            <button class="btn btn-primary" id="tutorialUseBtn" type="button">在主页面试用这段示例</button>
+            <button class="btn btn-secondary" id="tutorialDismissBtn" type="button">暂不使用</button>
+          </div>
+        </div>
+        <div class="tutorial-preview">
+          <div class="tutorial-preview-shell" id="tutorialMiniPreview"></div>
+          <span>示例短稿：包含标题、称呼、正文、连续标点和落款</span>
+        </div>
+      </div>
+    </section>
+  </div>
   <div class="toast-region" id="toastRegion" aria-live="polite"></div>
   <div class="loading-overlay is-hidden" id="loadingOverlay" aria-hidden="true">
     <div class="loading-card"><span class="spinner"></span><strong id="loadingTitle">正在解析文档</strong><span id="loadingText">请稍候…</span></div>
