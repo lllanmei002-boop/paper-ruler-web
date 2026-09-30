@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="把电子文档转换成多页作文稿纸，检查标点避头尾、占格和文书格式问题。" />
+  <meta name="theme-color" content="#f1eee5" />
+  <title>稿纸尺｜标点落格与格式纠错</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23b33b2e'/%3E%3Cpath d='M13 13h38v38H13zM22 13v38M32 13v38M42 13v38M13 22h38M13 32h38M13 42h38' fill='none' stroke='%23fff8ed' stroke-width='2'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="稿纸尺首页">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32"><path d="M5 5h22v22H5zM12.3 5v22M19.6 5v22M5 12.3h22M5 19.6h22"/></svg>
+        </span>
+        <span>
+          <strong>稿纸尺</strong>
+          <small>标点落格与格式纠错</small>
+        </span>
+      </a>
+      <div class="topbar-note"><span class="privacy-dot"></span>文档仅在浏览器本地处理</div>
+      <div class="top-actions">
+        <button class="btn btn-quiet" id="clearBtn" type="button">清空</button>
+        <button class="btn btn-quiet" id="sampleBtn" type="button">载入示例</button>
+        <div class="menu-wrap">
+          <button class="btn btn-secondary" id="printBtn" type="button" aria-haspopup="true" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6z"/></svg>
+            打印
+          </button>
+          <div class="popover-menu is-hidden" id="printMenu">
+            <button type="button" data-print-variant="raw">打印原样落格</button>
+            <button type="button" data-print-variant="squeeze">打印同格压缩版</button>
+            <button type="button" data-print-variant="shift">打印整组移行版</button>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="exportPngBtn" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+          导出图片包
+        </button>
+        <button class="btn btn-dark" id="exportPdfBtn" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l5 5v15H6zM15 2v6h5"/><path d="M9 14h6M9 18h4"/></svg>
+          导出 PDF 包
+        </button>
+      </div>
+    </header>
+
+    <main class="workspace-shell">
+      <aside class="side-panel left-panel">
+        <section class="panel-section import-section">
+          <div class="section-heading">
+            <div><span class="eyebrow">01 / 文档</span><h2>导入电子稿</h2></div>
+            <span class="local-badge">本地</span>
+          </div>
+          <input id="fileInput" type="file" accept=".docx,.txt,.md,.markdown,.html,.htm" hidden />
+          <button class="drop-zone" id="dropZone" type="button">
+            <span class="drop-icon">
+              <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 3h13l7 7v19H6zM19 3v8h7"/><path d="M16 14v9M12 18l4-4 4 4"/></svg>
+            </span>
+            <strong>选择或拖入文档</strong>
+            <span>支持 .docx / .txt / .md / .html</span>
+          </button>
+          <div class="file-card is-hidden" id="fileCard">
+            <span class="file-icon" id="fileIcon">DOCX</span>
+            <div class="file-card-copy">
+              <strong id="fileName">示例申请书.docx</strong>
+              <span id="fileMeta">已生成 2 页稿纸</span>
+            </div>
+            <button class="icon-btn" id="replaceFileBtn" type="button" aria-label="更换文档">
+              <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"/></svg>
+            </button>
+          </div>
+          <details class="paste-panel">
+            <summary><span>没有合适的文件？粘贴正文</span><svg viewBox="0 0 24 24"><path d="m8 10 4 4 4-4"/></svg></summary>
+            <div class="paste-body">
+              <textarea id="pasteInput" rows="7" placeholder="将 PDF、网页或 DOC 中的正文复制到这里。空行会作为段落分隔。"></textarea>
+              <button class="btn btn-secondary btn-full" id="pasteBtn" type="button">生成稿纸预览</button>
+              <p>扫描版 PDF 请先使用 OCR；网址、邮箱等内容的标点会按例外规则处理。</p>
+            </div>
+          </details>
+        </section>
+
+        <section class="panel-section outline-section">
+          <div class="section-heading compact">
+            <div><span class="eyebrow">02 / 结构</span><h2>文书结构</h2></div>
+            <span class="count-badge" id="outlineCount">0</span>
+          </div>
+          <div class="outline-list" id="outlineList"><div class="outline-empty">标题、称呼和落款会显示在这里</div></div>
+        </section>
+
+        <section class="rule-summary-card">
+          <div class="summary-ring" id="summaryRing"><strong id="summaryIssueCount">0</strong><span>问题</span></div>
+          <div><strong id="summaryTitle">等待文档</strong><p id="summaryText">导入后会同时生成原样落格和规范建议。</p></div>
+        </section>
+
+        <section class="tips-card">
+          <div class="tips-icon">格</div>
+          <div><strong>原样稿纸</strong><p>按你实际逐字照抄的顺序落格，不自动避头尾，用来发现真正的风险位置。</p></div>
+        </section>
+      </aside>
+
+      <section class="preview-panel">
+        <div class="preview-toolbar">
+          <div class="preview-title">
+            <span class="eyebrow">双稿纸对照</span>
+            <h1 id="documentTitle">示例：青年人才交流计划申请书</h1>
+          </div>
+          <div class="mobile-view-switch" id="mobileViewSwitch">
+            <button class="is-active" type="button" data-mobile-view="raw">原样</button>
+            <button type="button" data-mobile-view="suggested">建议</button>
+          </div>
+          <div class="toolbar-summary">
+            <span class="summary-pill is-danger"><i></i><b id="errorCount">0</b> 确定错误</span>
+            <span class="summary-pill is-warning"><i></i><b id="warningCount">0</b> 建议核对</span>
+          </div>
+        </div>
+
+        <div class="compare-stage" id="compareStage">
+          <div class="empty-state" id="emptyState">
+            <div class="empty-grid" aria-hidden="true"></div>
+            <h2>导入文档，检查稿纸落格</h2>
+            <p>系统会用相同内容生成原样稿纸与规范建议，并标出标点可能跑到行首、行尾或跨格的位置。</p>
+            <button class="btn btn-primary" id="emptyImportBtn" type="button">选择文档</button>
+          </div>
+
+          <div class="comparison-layout is-hidden" id="comparisonLayout">
+            <section class="comparison-pane raw-pane" id="rawPane">
+              <header class="pane-head">
+                <div><span class="pane-dot raw-dot"></span><strong>原样落格</strong><small>发现问题</small></div>
+                <span class="pane-page-count" id="rawPageCount">0 页</span>
+              </header>
+              <div class="pane-scroll" id="rawScroll"><div class="page-stack" id="rawPages"></div></div>
+            </section>
+            <section class="comparison-pane suggested-pane" id="suggestedPane">
+              <header class="pane-head">
+                <div><span class="pane-dot suggested-dot"></span><strong id="suggestedPaneTitle">规范建议 · 同格压缩</strong><small>安全写法</small></div>
+                <span class="pane-page-count" id="suggestedPageCount">0 页</span>
+              </header>
+              <div class="pane-scroll" id="suggestedScroll"><div class="page-stack" id="suggestedPages"></div></div>
+            </section>
+          </div>
+        </div>
+
+        <div class="preview-statusbar">
+          <div class="zoom-control">
+            <button class="icon-btn" id="zoomOutBtn" type="button" aria-label="缩小">−</button>
+            <span id="zoomLabel">45%</span>
+            <button class="icon-btn" id="zoomInBtn" type="button" aria-label="放大">＋</button>
+            <button class="fit-btn" id="fitBtn" type="button">适合窗口</button>
+          </div>
+          <div class="page-nav">
+            <button class="icon-btn" id="prevPageBtn" type="button" aria-label="上一页">‹</button>
+            <span><b id="currentPageLabel">1</b> / <span id="pageCountLabel">1</span> 页</span>
+            <button class="icon-btn" id="nextPageBtn" type="button" aria-label="下一页">›</button>
+          </div>
+          <div class="legend-inline">
+            <span><i class="legend-red"></i>原样冲突</span>
+            <span><i class="legend-green"></i>建议调整</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side-panel right-panel">
+        <details class="settings-group" open>
+          <summary><span>稿纸规格</span><svg viewBox="0 0 24 24"><path d="m8 10 4 4 4-4"/></svg></summary>
+          <div class="settings-body">
+            <div class="preset-row">
+              <button class="mini-preset is-active" type="button" data-grid-preset="20x20">400 格</button>
+              <button class="mini-preset" type="button" data-grid-preset="20x25">500 格</button>
+              <button class="mini-preset" type="button" data-grid-preset="20x30">600 格</button>
+            </div>
+            <div class="field-row">
+              <label class="field"><span>每行格数</span><input type="number" min="8" max="40" step="1" data-setting="columns" /></label>
+              <label class="field"><span>每页行数</span><input type="number" min="8" max="50" step="1" data-setting="rows" /></label>
+            </div>
+            <div class="capacity-line"><span>每页容量</span><strong id="capacityLabel">400 格</strong></div>
+            <div class="field-row is-hidden" id="customSizeFields">
+              <label class="field"><span>宽（mm）</span><input type="number" min="80" max="1000" step="1" data-setting="width" /></label>
+              <label class="field"><span>高（mm）</span><input type="number" min="80" max="1000" step="1" data-setting="height" /></label>
+            </div>
+            <div class="field-row">
+              <label class="field">
+                <span>纸张</span>
+                <select data-setting="pageSize">
+                  <option value="A4">A4 纵向</option>
+                  <option value="A4-landscape">A4 横向</option>
+                  <option value="A3">A3 纵向</option>
+                  <option value="Letter">Letter 纵向</option>
+                  <option value="custom">自定义</option>
+                </select>
+              </label>
+              <label class="field"><span>页边距（mm）</span><input type="number" min="0" max="30" step="0.5" data-setting="margin" /></label>
+            </div>
+          </div>
+        </details>
+
+        <details class="settings-group" open>
+          <summary><span>落格与检查规则</span><svg viewBox="0 0 24 24"><path d="m8 10 4 4 4-4"/></svg></summary>
+          <div class="settings-body rule-list">
+            <label class="rule-switch"><span><b>数字英文两字符一格</b><small>阿拉伯数字、字母、半角符号每两个占一格</small></span><input type="checkbox" data-setting="asciiPerCell" /></label>
+            <label class="rule-switch"><span><b>标点避头尾</b><small>点号不能行首，前引号等不能行尾</small></span><input type="checkbox" data-setting="rulePunctuation" /></label>
+            <label class="rule-switch"><span><b>成对符号检查</b><small>检查引号、括号、书名号是否配对</small></span><input type="checkbox" data-setting="rulePairs" /></label>
+            <label class="rule-switch"><span><b>半角标点检查</b><small>中文语句中误用 , . ! ? 等会提示</small></span><input type="checkbox" data-setting="ruleHalfwidth" /></label>
+            <label class="rule-switch"><span><b>空格与空行检查</b><small>制表符、连续空格、多余空行</small></span><input type="checkbox" data-setting="ruleSpaces" /></label>
+            <label class="rule-switch"><span><b>文书结构检查</b><small>标题、称呼、缩进和落款格式</small></span><input type="checkbox" data-setting="ruleStructure" /></label>
+          </div>
+        </details>
+
+        <details class="settings-group" open>
+          <summary><span>建议方式</span><svg viewBox="0 0 24 24"><path d="m8 10 4 4 4-4"/></svg></summary>
+          <div class="settings-body">
+            <div class="correction-options" id="correctionOptions">
+              <label class="correction-card">
+                <input type="radio" name="correctionStyle" value="squeeze" data-setting="correctionStyle" checked />
+                <span><b>同格压缩</b><small>行末与前字挤在同一方格，页数通常不变</small></span>
+              </label>
+              <label class="correction-card">
+                <input type="radio" name="correctionStyle" value="shift" data-setting="correctionStyle" />
+                <span><b>整组移行</b><small>将前字和标点一起移到下一行，单格更清楚</small></span>
+              </label>
+            </div>
+            <label class="rule-switch merge-switch">
+              <span><b>连续标点合格</b><small>开启后仅建议稿生效，如 （“，”） 会收进同一格</small></span>
+              <input type="checkbox" data-setting="mergePunctuation" />
+            </label>
+            <div class="field-row">
+              <label class="field">
+                <span>稿纸字体</span>
+                <select data-setting="gridFont">
+                  <option value="KaiTi, STKaiti, Kaiti SC, SimSun, serif">楷体（推荐）</option>
+                  <option value="FangSong, STFangsong, SimSun, serif">仿宋</option>
+                  <option value="SimSun, Songti SC, serif">宋体</option>
+                  <option value="Microsoft YaHei, PingFang SC, sans-serif">黑体 / 雅黑</option>
+                </select>
+              </label>
+              <label class="field"><span>方格颜色</span><input type="color" data-setting="gridColor" /></label>
+            </div>
+            <label class="switch-field compact-switch page-number-switch"><span>显示页码</span><input type="checkbox" data-setting="showPageNumber" /></label>
+          </div>
+        </details>
+
+        <section class="issue-panel">
+          <div class="issue-head">
+            <div><span class="eyebrow">问题导航</span><h3 id="issuePanelTitle">尚未检查</h3></div>
+            <select id="issueFilter" aria-label="问题筛选">
+              <option value="all">全部</option>
+              <option value="error">只看错误</option>
+              <option value="warning">只看提醒</option>
+            </select>
+          </div>
+          <div class="issue-list" id="issueList"><div class="issue-empty">导入文档后会显示逐格问题。</div></div>
+        </section>
+        <p class="disclaimer">检查结果用于提醒风险，不直接改动原稿。若你的申请书另有专门规范，应以单位要求为准。</p>
+      </aside>
+    </main>
+  </div>
+
+  <div class="toast-region" id="toastRegion" aria-live="polite"></div>
+  <div class="loading-overlay is-hidden" id="loadingOverlay" aria-hidden="true">
+    <div class="loading-card"><span class="spinner"></span><strong id="loadingTitle">正在解析文档</strong><span id="loadingText">请稍候…</span></div>
+  </div>
+  <style id="printPageStyle"></style>
+  <script src="app.js" defer></script>
+</body>
+</html>
