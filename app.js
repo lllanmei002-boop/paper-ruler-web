@@ -17,7 +17,7 @@
     margin: 12,
     columns: 20,
     rows: 20,
-    asciiPerCell: true,
+    pairingMode: "mixed",
     rulePunctuation: true,
     rulePairs: true,
     ruleHalfwidth: true,
@@ -446,16 +446,20 @@
         tokens.push(makeToken("——", 2, "dash", seqStart, seqStart + 1, blockData));
         index += 2; continue;
       }
-      if (state.settings.asciiPerCell && isHalfwidthGlyph(current)) {
+      const category = halfwidthCategory(current);
+      if (state.settings.pairingMode !== "single" && category) {
         let text = current;
         let end = index;
-        while (end + 1 < source.length && text.length < 2 && isHalfwidthGlyph(source[end + 1]) && source[end + 1] !== "\t") {
+        while (end + 1 < source.length && text.length < 2) {
+          const nextCategory = halfwidthCategory(source[end + 1]);
+          if (!nextCategory) break;
+          if (state.settings.pairingMode === "same" && nextCategory !== category) break;
           text += source[end + 1]; end += 1;
         }
         tokens.push(makeToken(text, 1, text.length === 2 ? "asciiPair" : "ascii", seqStart, blockData.startSeq + end, blockData));
         index = end + 1; continue;
       }
-      const kind = current === "…" ? "ellipsisHalf" : current === "—" ? "dashHalf" : current === "\t" ? "tab" : "fullwidth";
+      const kind = current === "…" ? "ellipsisHalf" : current === "—" ? "dashHalf" : current === "\t" ? "tab" : category ? "ascii" : "fullwidth";
       tokens.push(makeToken(current, 1, kind, seqStart, seqStart, blockData));
       index += 1;
     }
@@ -470,9 +474,11 @@
     return { text, width, kind, seqStart, seqEnd, blockIndex: blockData.blockIndex, occupants: [], changed: false, moved: false, sourceText: text };
   }
 
-  function isHalfwidthGlyph(glyph) {
-    if (!glyph || glyph === "\n" || glyph === "\r") return false;
-    return glyph.codePointAt(0) <= 0xff && glyph !== "　";
+  function halfwidthCategory(glyph) {
+    if (!glyph || /\s/.test(glyph)) return "";
+    if (/[0-9]/.test(glyph)) return "digit";
+    if (/[A-Za-z]/.test(glyph)) return "letter";
+    return glyph.codePointAt(0) <= 0xff ? "symbol" : "";
   }
   function firstVisibleToken(line) { return line && line.tokens && line.tokens.length ? line.tokens[0] : null; }
   function lastVisibleToken(line) { return line && line.tokens && line.tokens.length ? line.tokens[line.tokens.length - 1] : null; }

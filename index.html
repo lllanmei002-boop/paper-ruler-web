@@ -185,7 +185,15 @@
         <details class="settings-group" open>
           <summary><span>落格与检查规则</span><svg viewBox="0 0 24 24"><path d="m8 10 4 4 4-4"/></svg></summary>
           <div class="settings-body rule-list">
-            <label class="rule-switch"><span><b>数字英文两字符一格</b><small>阿拉伯数字、字母、半角符号每两个占一格</small></span><input type="checkbox" data-setting="asciiPerCell" /></label>
+            <label class="field pairing-option">
+              <span>数字、英文与符号占格</span>
+              <select data-setting="pairingMode">
+                <option value="mixed">最多两个（允许混合类型）</option>
+                <option value="same">最多两个（仅同类型）</option>
+                <option value="single">每个字符单独一格</option>
+              </select>
+              <small>凑不满两个的剩余字符会自动单独占一格</small>
+            </label>
             <label class="rule-switch"><span><b>标点避头尾</b><small>点号不能行首，前引号等不能行尾</small></span><input type="checkbox" data-setting="rulePunctuation" /></label>
             <label class="rule-switch"><span><b>成对符号检查</b><small>检查引号、括号、书名号是否配对</small></span><input type="checkbox" data-setting="rulePairs" /></label>
             <label class="rule-switch"><span><b>半角标点检查</b><small>中文语句中误用 , . ! ? 等会提示</small></span><input type="checkbox" data-setting="ruleHalfwidth" /></label>
@@ -249,6 +257,7 @@
             <li><b>导入或粘贴</b><span>支持 DOCX、TXT、Markdown、HTML。</span></li>
             <li><b>查看问题标记</b><span>红格是确定错误，黄格是建议核对。</span></li>
             <li><b>开启连续标点合格</b><span>需要时把连续符号收进同一格。</span></li>
+            <li><b>选择半角字符占格</b><span>数字、英文和符号可最多两个一格，或逐字一格。</span></li>
             <li><b>导出或打印</b><span>输出当前这一套规范稿纸。</span></li>
           </ol>
           <div class="tutorial-actions">
