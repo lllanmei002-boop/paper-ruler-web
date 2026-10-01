@@ -383,3 +383,21 @@ body.tutorial-open { overflow: hidden; }
   .tutorial-preview-shell { min-height: 230px; }
   .tutorial-actions .btn { width: 100%; }
 }
+
+/* Single standard manuscript view */
+.single-layout { display: grid; width: 100%; min-height: 0; justify-items: center; }
+.single-pane { width: min(880px,100%); }
+.single-pane .pane-scroll { padding-left: 28px; padding-right: 28px; }
+
+@media (max-width: 760px) {
+  .single-pane .pane-scroll { padding-left: 10px; padding-right: 10px; }
+}
+
+@media print {
+  .single-layout { display: block !important; width: 100% !important; }
+  .single-pane { display: block !important; width: auto !important; }
+  body[data-print-variant] .comparison-pane { display: none !important; }
+  .single-layout .comparison-pane { display: block !important; }
+}
+
+.legend-amber { background: rgba(218,153,49,.18); border: 1px solid rgba(190,128,27,.42); }

@@ -23,7 +23,6 @@
     ruleHalfwidth: true,
     ruleSpaces: true,
     ruleStructure: true,
-    correctionStyle: "squeeze",
     gridColor: "#c98f85",
     showPageNumber: true,
     gridFont: "KaiTi, STKaiti, Kaiti SC, SimSun, serif",
@@ -45,17 +44,15 @@
     blocks: [],
     fileName: "未导入文档",
     fileType: "空白",
-    layouts: null,
+    layout: null,
     issues: [],
     currentPage: 0,
     zoom: 0.45,
     autoFit: true,
-    mobileView: "raw",
     selectedIssue: "",
     issueFilter: "all",
     renderTimer: 0,
-    syncLock: false,
-    printVariant: "raw"
+    syncLock: false
   };
 
   const elements = {};
@@ -80,12 +77,12 @@
   function cacheElements() {
     [
       "fileInput","dropZone","fileCard","fileIcon","fileName","fileMeta","replaceFileBtn","pasteInput","pasteBtn",
-      "clearBtn","sampleBtn","printBtn","printMenu","exportPngBtn","exportPdfBtn","documentTitle","outlineCount",
+      "clearBtn","sampleBtn","printBtn","exportPngBtn","exportPdfBtn","documentTitle","outlineCount",
       "outlineList","summaryRing","summaryIssueCount","summaryTitle","summaryText","errorCount","warningCount",
-      "mobileViewSwitch","compareStage","emptyState","emptyImportBtn","comparisonLayout","rawPane","suggestedPane",
-      "rawScroll","suggestedScroll","rawPages","suggestedPages","rawPageCount","suggestedPageCount","suggestedPaneTitle",
+      "compareStage","emptyState","emptyImportBtn","singleLayout",
+      "previewScroll","previewPages","previewPageCount",
       "zoomOutBtn","zoomInBtn","zoomLabel","fitBtn","prevPageBtn","nextPageBtn","currentPageLabel","pageCountLabel",
-      "capacityLabel","correctionOptions","issueFilter","issuePanelTitle","issueList","toastRegion","loadingOverlay",
+      "capacityLabel","issueFilter","issuePanelTitle","issueList","toastRegion","loadingOverlay",
       "loadingTitle","loadingText","printPageStyle","customSizeFields","emptyTutorialBtn","tutorialOverlay","tutorialDialog","tutorialCloseBtn","tutorialUseBtn","tutorialDismissBtn","tutorialMiniPreview"
     ].forEach((id) => { elements[id] = document.getElementById(id); });
   }
@@ -166,7 +163,6 @@
         if (name === "pageSize") { applyPageSize(control.value); return; }
         state.settings[name] = readControlValue(control);
         if (name === "width" || name === "height") state.settings.pageSize = "custom";
-        if (name === "correctionStyle") state.selectedIssue = "";
         syncControls();
         scheduleRender();
       });
@@ -180,12 +176,6 @@
       });
     });
 
-    elements.mobileViewSwitch.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-mobile-view]");
-      if (!button) return;
-      state.mobileView = button.dataset.mobileView;
-      updateMobileView();
-    });
 
     elements.zoomOutBtn.addEventListener("click", () => { state.autoFit = false; setZoom(state.zoom - 0.08); });
     elements.zoomInBtn.addEventListener("click", () => { state.autoFit = false; setZoom(state.zoom + 0.08); });
@@ -194,24 +184,13 @@
     elements.nextPageBtn.addEventListener("click", () => scrollToPage(state.currentPage + 1));
     elements.issueFilter.addEventListener("change", () => { state.issueFilter = elements.issueFilter.value; renderIssueList(); });
 
-    elements.printBtn.addEventListener("click", (event) => {
-      event.stopPropagation();
-      elements.printMenu.classList.toggle("is-hidden");
-      elements.printBtn.setAttribute("aria-expanded", String(!elements.printMenu.classList.contains("is-hidden")));
-    });
-    elements.printMenu.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-print-variant]");
-      if (button) printReference(button.dataset.printVariant);
-    });
-    document.addEventListener("click", () => elements.printMenu.classList.add("is-hidden"));
+    elements.printBtn.addEventListener("click", printReference);
     elements.exportPngBtn.addEventListener("click", exportImages);
     elements.exportPdfBtn.addEventListener("click", exportPdf);
     window.addEventListener("resize", debounce(() => {
       if (state.autoFit) fitToWindow(false);
     }, 160));
-    elements.rawScroll.addEventListener("scroll", () => syncScroll("raw"));
-    elements.suggestedScroll.addEventListener("scroll", () => syncScroll("suggested"));
-    elements.comparisonLayout.addEventListener("click", (event) => {
+    elements.singleLayout.addEventListener("click", (event) => {
       const cell = event.target.closest(".grid-cell[data-issue-ids]");
       if (cell) selectIssue((cell.dataset.issueIds || "").split(" ")[0], true);
     });
@@ -347,7 +326,7 @@
         else blocks = blocksFromPlainText(text);
       }
       acceptContent(blocks, file.name, extension.toUpperCase());
-      const count = state.layouts ? state.layouts.raw.pages.length : 0;
+      const count = state.layout ? state.layout.pages.length : 0;
       showToast(`已生成 ${count} 页稿纸，并完成 ${state.issues.length} 项检查。`, "success");
     } catch (error) {
       console.error(error);
@@ -389,13 +368,13 @@
     const previewBlocks = prepareBlocks(tutorialBlocks);
     const savedMerge = state.settings.mergePunctuation;
     state.settings.mergePunctuation = true;
-    const layout = buildLayout(previewBlocks, "suggested");
+    const layout = buildLayout(previewBlocks, "standard");
     state.settings.mergePunctuation = savedMerge;
     const metrics = getGridMetrics();
     const page = layout.pages[0];
     elements.tutorialMiniPreview.textContent = "";
     if (!page) return;
-    const pageNode = renderGridPage(page, metrics, "suggested", [], { blocks: previewBlocks });
+    const pageNode = renderGridPage(page, metrics, "standard", [], { blocks: previewBlocks });
     const availableWidth = Math.max(180, elements.tutorialMiniPreview.clientWidth - 18);
     const availableHeight = Math.max(220, elements.tutorialMiniPreview.clientHeight - 14);
     const zoom = Math.min(0.31, availableWidth / metrics.widthPx, availableHeight / metrics.heightPx);
@@ -416,7 +395,7 @@
 
   function clearDocument() {
     state.blocks = [];
-    state.layouts = null;
+    state.layout = null;
     state.issues = [];
     state.fileName = "未导入文档";
     state.fileType = "空白";
@@ -526,7 +505,7 @@
       }
       current.tokens.push(token); current.used += token.width;
     });
-    if (current.tokens.length || !lines.length) lines.push(current);
+    if ((current.tokens.length && !lines.includes(current)) || !lines.length) lines.push(current);
     lines.forEach((line) => {
       if (alignment === "center") line.leading = Math.max(0, Math.floor((state.settings.columns - line.used) / 2));
       else if (alignment === "right") line.leading = Math.max(0, state.settings.columns - line.used);
@@ -539,25 +518,46 @@
     const lines = [];
     let current = createLine(blockData, firstIndent);
     tokens.forEach((token) => {
-      if (current.used + token.width > state.settings.columns && current.tokens.length) {
+      const columns = state.settings.columns;
+      if (current.used + token.width > columns && current.tokens.length) {
+        if (mode === "standard" && token.width === 2) {
+          current = splitTwoCellTokenAcrossLines(token, blockData, current, lines);
+          return;
+        }
         if (token.width === 2 || tokenEndsOpening(token)) token.changed = true;
         lines.push(current); current = createLine(blockData, 0);
       }
       if (mode !== "raw" && state.settings.rulePunctuation && !current.tokens.length && tokenStartsClosing(token)) {
         if (handleClosingAtStart(current, token, lines, mode)) return;
       }
-      const remaining = state.settings.columns - current.used;
-      if (mode !== "raw" && state.settings.rulePunctuation && tokenEndsOpening(token) && current.tokens.length && remaining <= token.width) {
+      const remaining = columns - current.used;
+      if (mode !== "raw" && mode !== "standard" && state.settings.rulePunctuation && tokenEndsOpening(token) && current.tokens.length && remaining <= token.width) {
         token.changed = true;
         lines.push(current); current = createLine(blockData, 0);
       }
-      if (mode !== "raw" && state.settings.rulePunctuation && token.width === 2 && state.settings.columns - current.used < 2) {
+      if (mode !== "raw" && mode !== "standard" && state.settings.rulePunctuation && token.width === 2 && columns - current.used < 2) {
         if (current.tokens.length) { lines.push(current); current = createLine(blockData, 0); }
+      }
+      if (mode === "standard" && token.width === 2 && columns - current.used < 2 && current.tokens.length) {
+        current = splitTwoCellTokenAcrossLines(token, blockData, current, lines);
+        return;
       }
       current.tokens.push(token); current.used += token.width;
     });
-    if (current.tokens.length || !lines.length) lines.push(current);
+    if ((current.tokens.length && !lines.includes(current)) || !lines.length) lines.push(current);
     return lines;
+  }
+
+  function splitTwoCellTokenAcrossLines(token, blockData, current, lines) {
+    const glyphs = Array.from(token.text);
+    if (glyphs.length !== 2) { lines.push(current); return; }
+    const kind = token.kind === "ellipsis" || token.kind === "dash" ? `${token.kind}Half` : "fullwidth";
+    const first = makeToken(glyphs[0], 1, kind, token.seqStart, token.seqStart, blockData);
+    const second = makeToken(glyphs[1], 1, kind, token.seqEnd, token.seqEnd, blockData);
+    first.changed = false; second.changed = false;
+    current.tokens.push(first); current.used += 1; lines.push(current);
+    const continuation = createLine(blockData, 0); continuation.tokens.push(second); continuation.used = 1; lines.push(continuation);
+    return continuation;
   }
 
   function handleClosingAtStart(current, token, lines, mode) {
@@ -565,12 +565,13 @@
     const previous = lines[lines.length - 1];
     const previousToken = lastVisibleToken(previous);
     if (!previousToken) return false;
-    if (mode === "squeeze") {
+    const effectiveMode = mode === "standard" ? "squeeze" : mode;
+    if (effectiveMode === "squeeze") {
       previousToken.occupants.push({ text: token.text, seqStart: token.seqStart, seqEnd: token.seqEnd, kind: token.kind, changed: true });
       previous.changed = true; previousToken.changed = true; token.resolvedBy = "squeeze";
       return true;
     }
-    if (mode === "shift") {
+    if (effectiveMode === "shift") {
       if (previousToken.width + token.width > state.settings.columns) return false;
       previous.tokens.pop(); previous.used -= previousToken.width;
       previousToken.moved = true; previousToken.changed = true;
@@ -744,17 +745,17 @@
       const first = firstVisibleToken(line);
       const last = lastVisibleToken(line);
       if (first && tokenStartsClosing(first)) {
-        issues.push({ rule:"line-start", severity:"error", message:`标点“${lineStartGlyph(first)}”出现在行首。`, suggested:"同格压缩：写在前一格右下角；整组移行：把前一字连同标点移到下一行。", blockIndex:first.blockIndex, seqStart:first.seqStart, seqEnd:first.seqStart, category:"punct", solutions:{} });
+        issues.push({ rule:"line-start", severity:"error", message:`标点“${lineStartGlyph(first)}”出现在行首。`, suggested:"当前行首没有可压缩的前格，请调整前文；稿纸保持连续并已标记。", blockIndex:first.blockIndex, seqStart:first.seqStart, seqEnd:first.seqStart, category:"punct", solutions:{} });
       }
       const next = entries[position + 1];
       const nextLine = next && next.line.blockIndex === line.blockIndex ? next.line : null;
       if (last && tokenEndsOpening(last) && nextLine) {
-        issues.push({ rule:"line-end", severity:"error", message:`前引号或前括号“${Array.from(last.text).at(-1)}”出现在行末。`, suggested:"把该符号连同后面的文字整体移到下一行。", blockIndex:last.blockIndex, seqStart:last.seqEnd, seqEnd:last.seqEnd, category:"punct", solutions:{} });
+        issues.push({ rule:"line-end", severity:"error", message:`前引号或前括号“${Array.from(last.text).at(-1)}”出现在行末。`, suggested:"前引号或前括号不宜置于行末；当前稿纸不留空，请手写调整并已标记。", blockIndex:last.blockIndex, seqStart:last.seqEnd, seqEnd:last.seqEnd, category:"punct", solutions:{} });
       }
       if (last && (last.kind === "ellipsisHalf" || last.kind === "dashHalf") && nextLine) {
         const nextFirst = firstVisibleToken(nextLine);
         if (nextFirst && nextFirst.text === last.text) {
-          issues.push({ rule:"two-cell-split", severity:"error", message:`“${last.text}${nextFirst.text}”被拆到两行。`, suggested:"省略号和破折号应连续占两格，请整组移到下一行。", blockIndex:last.blockIndex, seqStart:last.seqStart, seqEnd:nextFirst.seqEnd, category:"punct", solutions:{} });
+          issues.push({ rule:"two-cell-split", severity:"error", message:`“${last.text}${nextFirst.text}”被拆到两行。`, suggested:"省略号或破折号跨越两行；当前保持连续并已标记，建议整组移到下一行。", blockIndex:last.blockIndex, seqStart:last.seqStart, seqEnd:nextFirst.seqEnd, category:"punct", solutions:{} });
         }
       }
     });
@@ -762,17 +763,21 @@
 
   function lineStartGlyph(token) { return Array.from(token.text)[0] || token.text; }
 
-  function attachAndResolveIssues(rawLayout, squeezeLayout, shiftLayout) {
-    const issues = scanIssues(rawLayout);
+  function attachIssues(layout) {
+    const issues = scanIssues(layout);
     issues.forEach((issue, index) => {
       issue.id = `issue-${index + 1}`;
-      const raw = findSeqPosition(rawLayout, issue.seqStart) || { page:0,row:0,col:0,width:1,changed:false };
-      issue.rawPage = raw.page; issue.rawRow = raw.row; issue.rawCol = raw.col; issue.rawWidth = raw.width;
-      const squeeze = findSeqPosition(squeezeLayout, issue.seqStart);
-      const shift = findSeqPosition(shiftLayout, issue.seqStart);
-      issue.solutions.squeeze = squeeze ? { ...squeeze, pageCount:squeezeLayout.pages.length } : null;
-      issue.solutions.shift = shift ? { ...shift, pageCount:shiftLayout.pages.length } : null;
-      issue.rawPageCount = rawLayout.pages.length;
+      const position = findSeqPosition(layout, issue.seqStart) || { page:0,row:0,col:0,width:1,changed:false };
+      issue.rawPage = position.page;
+      issue.rawRow = position.row;
+      issue.rawCol = position.col;
+      issue.rawWidth = position.width;
+      if (issue.rule === "two-cell-split" && issue.seqEnd > issue.seqStart) {
+        const second = findSeqPosition(layout, issue.seqEnd);
+        issue.positions = second ? [position, second] : [position];
+      } else {
+        issue.positions = [position];
+      }
     });
     return issues;
   }
@@ -781,40 +786,26 @@
     window.clearTimeout(state.renderTimer);
     const hasContent = state.blocks.length > 0;
     if (!hasContent) {
-      state.layouts = null; state.issues = [];
-      elements.emptyState.classList.remove("is-hidden"); elements.comparisonLayout.classList.add("is-hidden");
+      state.layout = null; state.issues = [];
+      elements.emptyState.classList.remove("is-hidden"); elements.singleLayout.classList.add("is-hidden");
       elements.documentTitle.textContent = "未导入文档";
-      elements.rawPages.textContent = ""; elements.suggestedPages.textContent = "";
-      elements.rawPageCount.textContent = "0 页"; elements.suggestedPageCount.textContent = "0 页";
+      elements.previewPages.textContent = ""; elements.previewPageCount.textContent = "0 页";
       elements.issueList.innerHTML = '<div class="issue-empty">导入文档后会显示逐格问题。</div>';
       updateSummary(); updateNavigation(); return;
     }
-    const raw = buildLayout(state.blocks, "raw");
-    const squeeze = buildLayout(state.blocks, "squeeze");
-    const shift = buildLayout(state.blocks, "shift");
-    state.layouts = { raw, squeeze, shift };
-    state.issues = attachAndResolveIssues(raw, squeeze, shift);
-    elements.emptyState.classList.add("is-hidden"); elements.comparisonLayout.classList.remove("is-hidden");
-    renderComparison(); renderOutline(); renderIssueList(); updateDocumentMeta(); updateSummary(); updateNavigation(); updateMobileView();
+    state.layout = buildLayout(state.blocks, "standard");
+    state.issues = attachIssues(state.layout);
+    elements.emptyState.classList.add("is-hidden"); elements.singleLayout.classList.remove("is-hidden");
+    renderStandardLayout(); renderOutline(); renderIssueList(); updateDocumentMeta(); updateSummary(); updateNavigation();
     if (state.autoFit) requestAnimationFrame(() => fitToWindow(false));
   }
 
-  function currentSuggestedLayout() {
-    const style = state.settings.correctionStyle === "shift" ? "shift" : "squeeze";
-    return { style, layout: state.layouts?.[style] };
+  function renderStandardLayout() {
+    renderPane(elements.previewPages, state.layout.pages, state.issues, "standard");
+    elements.previewPageCount.textContent = `${state.layout.pages.length} 页`;
   }
 
-  function renderComparison() {
-    const suggested = currentSuggestedLayout();
-    elements.suggestedPaneTitle.textContent = `规范建议 · ${suggested.style === "shift" ? "整组移行" : "同格压缩"}`;
-    renderPane("raw", state.layouts.raw.pages, state.issues);
-    renderPane("suggested", suggested.layout.pages, state.issues, suggested.style);
-    elements.rawPageCount.textContent = `${state.layouts.raw.pages.length} 页`;
-    elements.suggestedPageCount.textContent = `${suggested.layout.pages.length} 页`;
-  }
-
-  function renderPane(type, pages, issues, mode = "raw") {
-    const target = type === "raw" ? elements.rawPages : elements.suggestedPages;
+  function renderPane(target, pages, issues, mode = "standard") {
     target.textContent = "";
     const metrics = getGridMetrics();
     pages.forEach((page) => target.appendChild(renderGridPage(page, metrics, mode, issues)));
@@ -865,7 +856,6 @@
         cell.style.left = `${col * metrics.cellPx}px`; cell.style.top = `${row * metrics.cellPx}px`;
         cell.style.width = `${metrics.cellPx}px`; cell.style.height = `${metrics.cellPx}px`;
         cell.dataset.row = String(row); cell.dataset.col = String(col); cell.dataset.page = String(page.index); cell.dataset.mode = mode;
-        if (mode !== "raw" && cellIsChanged(page, row, col)) cell.classList.add("changed");
         surface.appendChild(cell);
       }
     }
@@ -878,7 +868,7 @@
       if (token.kind === "asciiPair") tokenNode.classList.add("ascii-pair");
       if (token.kind === "punctuationCluster") tokenNode.classList.add("punctuation-cluster");
       if (token.width === 2) tokenNode.classList.add("two-cell");
-      if (token.changed || token.moved) tokenNode.classList.add("changed-token");
+      if (token.moved) tokenNode.classList.add("changed-token");
       tokenNode.style.left = `${placement.col * metrics.cellPx + 1}px`;
       tokenNode.style.top = `${placement.row * metrics.cellPx + 1}px`;
       tokenNode.style.width = `${token.width * metrics.cellPx - 2}px`;
@@ -913,14 +903,16 @@
 
   function buildCellMap(issues, pageIndex, mode) {
     const map = new Map();
-    if (mode !== "raw") return map;
     issues.forEach((issue) => {
-      if (issue.rawPage !== pageIndex) return;
-      const width = issue.rawWidth || 1;
-      for (let offset = 0; offset < width; offset += 1) {
-        const key = `${issue.rawRow}:${issue.rawCol + offset}`;
-        const list = map.get(key) || []; list.push(issue.id); map.set(key, list);
-      }
+      if (issue.rawPage !== pageIndex && !(issue.positions || []).some((position) => position.page === pageIndex)) return;
+      const positions = (issue.positions || [{ page:issue.rawPage, row:issue.rawRow, col:issue.rawCol, width:issue.rawWidth || 1 }]).filter((position) => position.page === pageIndex);
+      positions.forEach((position) => {
+        const width = position.width || 1;
+        for (let offset = 0; offset < width; offset += 1) {
+          const key = `${position.row}:${position.col + offset}`;
+          const list = map.get(key) || []; list.push(issue.id); map.set(key, list);
+        }
+      });
     });
     return map;
   }
@@ -971,20 +963,9 @@
       button.dataset.issueId = issue.id;
       const title = document.createElement("strong"); title.textContent = `${issue.rawRow + 1} 行 ${issue.rawCol + 1} 格 · ${issue.message}`;
       const location = document.createElement("span"); location.textContent = issue.suggested;
-      const counts = solutionCountText(issue);
-      const solutions = document.createElement("span"); solutions.className = "issue-solution"; solutions.textContent = counts;
-      button.append(title, location, solutions);
+      button.append(title, location);
       elements.issueList.appendChild(button);
     });
-  }
-
-  function solutionCountText(issue) {
-    const squeeze = issue.solutions?.squeeze;
-    const shift = issue.solutions?.shift;
-    const squeezeDelta = squeeze ? squeeze.pageCount - issue.rawPageCount : null;
-    const shiftDelta = shift ? shift.pageCount - issue.rawPageCount : null;
-    const diff = (value) => value === 0 ? "页数不变" : value > 0 ? `增加 ${value} 页` : `减少 ${Math.abs(value)} 页`;
-    return `同格压缩：${squeezeDelta === null ? "不适用" : diff(squeezeDelta)}；整组移行：${shiftDelta === null ? "不适用" : diff(shiftDelta)}`;
   }
 
   function updateSummary() {
@@ -994,13 +975,13 @@
     elements.summaryIssueCount.textContent = String(state.issues.length);
     if (!state.blocks.length) {
       elements.summaryTitle.textContent = "等待文档";
-      elements.summaryText.textContent = "导入后会同时生成原样落格和规范建议。";
+      elements.summaryText.textContent = "导入后会生成规范稿纸并标记问题。";
     } else if (!state.issues.length) {
       elements.summaryTitle.textContent = "未发现明显落格问题";
       elements.summaryText.textContent = "仍建议逐页检查标题、缩进和落款位置。";
     } else {
       elements.summaryTitle.textContent = `发现 ${errors} 个错误、${warnings} 个提醒`;
-      elements.summaryText.textContent = "红格表示原样落格风险，绿格表示建议稿纸中的调整。";
+      elements.summaryText.textContent = "红格是确定错误，黄格是建议核对；稿纸不会为修正留出多余空格。";
     }
   }
 
@@ -1009,9 +990,9 @@
     elements.documentTitle.textContent = title || state.fileName.replace(/\.[^.]+$/, "");
     elements.fileName.textContent = state.fileName;
     const chars = state.blocks.reduce((sum, item) => sum + item.graphemes.length, 0);
-    elements.fileMeta.textContent = `${chars.toLocaleString("zh-CN")} 字 · ${state.layouts?.raw.pages.length || 0} 页稿纸`;
+    elements.fileMeta.textContent = `${chars.toLocaleString("zh-CN")} 字 · ${state.layout?.pages.length || 0} 页规范稿纸`;
     elements.fileCard.classList.remove("is-hidden");
-    const ext = state.fileName.includes(".") ? state.fileName.split(".").pop().slice(0,4).toUpperCase() : state.fileType.slice(0,4);
+    const ext = state.fileName.includes(".") ? state.fileName.split(".").pop().slice(0, 4).toUpperCase() : state.fileType.slice(0, 4);
     elements.fileIcon.textContent = ext || "TEXT";
   }
 
@@ -1019,9 +1000,8 @@
     state.selectedIssue = id;
     document.querySelectorAll(".grid-cell.selected").forEach((cell) => cell.classList.remove("selected"));
     document.querySelectorAll(".issue-item.is-active").forEach((item) => item.classList.remove("is-active"));
-    const ids = [id];
     document.querySelectorAll(".grid-cell[data-issue-ids]").forEach((cell) => {
-      if (ids.some((value) => (cell.dataset.issueIds || "").split(" ").includes(value))) cell.classList.add("selected");
+      if ((cell.dataset.issueIds || "").split(" ").includes(id)) cell.classList.add("selected");
     });
     document.querySelectorAll(`[data-issue-id="${id}"]`).forEach((item) => item.classList.add("is-active"));
     if (shouldScroll) scrollToIssue(id);
@@ -1032,56 +1012,32 @@
     if (!issue) return;
     state.currentPage = issue.rawPage;
     updateNavigation();
-    const page = elements.rawPages.querySelector(`[data-page-index="${issue.rawPage}"]`);
+    const page = elements.previewPages.querySelector(`[data-page-index="${issue.rawPage}"]`);
     if (page) page.scrollIntoView({ behavior:"smooth", block:"start" });
     window.setTimeout(() => {
-      const cell = Array.from(elements.rawPages.querySelectorAll(".grid-cell.selected")).find((item) => item.dataset.page === String(issue.rawPage));
+      const cell = elements.previewPages.querySelector(`.grid-cell.selected[data-page="${issue.rawPage}"]`);
       if (cell) cell.scrollIntoView({ behavior:"smooth", block:"center", inline:"center" });
-      syncSuggestedToPage(issue.solutions?.[state.settings.correctionStyle]?.page ?? issue.rawPage);
     }, 180);
   }
 
   function scrollToBlock(blockIndex) {
-    for (let pageIndex = 0; pageIndex < state.layouts.raw.pages.length; pageIndex += 1) {
-      const page = state.layouts.raw.pages[pageIndex];
+    for (let pageIndex = 0; pageIndex < state.layout.pages.length; pageIndex += 1) {
+      const page = state.layout.pages[pageIndex];
       if (page.lines.some((line) => line.blockIndex === blockIndex)) { scrollToPage(pageIndex); return; }
     }
   }
 
   function scrollToPage(index) {
-    if (!state.layouts) return;
-    const maxCount = Math.max(state.layouts.raw.pages.length, state.layouts.squeeze.pages.length, state.layouts.shift.pages.length);
-    const target = clamp(index, 0, Math.max(0, maxCount - 1));
+    if (!state.layout) return;
+    const target = clamp(index, 0, Math.max(0, state.layout.pages.length - 1));
     state.currentPage = target;
-    scrollPaneToPage(elements.rawScroll, elements.rawPages, Math.min(target, state.layouts.raw.pages.length - 1));
-    const suggested = currentSuggestedLayout();
-    scrollPaneToPage(elements.suggestedScroll, elements.suggestedPages, Math.min(target, suggested.layout.pages.length - 1));
+    scrollPaneToPage(elements.previewScroll, elements.previewPages, target);
     updateNavigation();
   }
 
   function scrollPaneToPage(scroll, pagesRoot, index) {
     const page = pagesRoot.querySelector(`[data-page-index="${index}"]`);
-    if (!page) return;
-    scroll.scrollTo({ top:page.offsetTop - 18, behavior:"smooth" });
-  }
-
-  function syncSuggestedToPage(index) {
-    scrollPaneToPage(elements.suggestedScroll, elements.suggestedPages, index);
-  }
-
-  function syncScroll(source) {
-    if (state.syncLock) return;
-    const from = source === "raw" ? elements.rawScroll : elements.suggestedScroll;
-    const to = source === "raw" ? elements.suggestedScroll : elements.rawScroll;
-    const fromMax = Math.max(1, from.scrollHeight - from.clientHeight);
-    const toMax = Math.max(1, to.scrollHeight - to.clientHeight);
-    state.syncLock = true;
-    to.scrollTop = (from.scrollTop / fromMax) * toMax;
-    requestAnimationFrame(() => { state.syncLock = false; });
-    const rawTop = source === "raw" ? from.scrollTop : to.scrollTop;
-    const rawPageHeight = elements.rawPages.querySelector(".grid-page")?.offsetHeight || 1;
-    const pageIndex = Math.round((rawTop * state.zoom) / Math.max(1, rawPageHeight));
-    if (pageIndex !== state.currentPage) { state.currentPage = pageIndex; updateNavigation(); }
+    if (page) scroll.scrollTo({ top:page.offsetTop - 18, behavior:"smooth" });
   }
 
   function setZoom(value) {
@@ -1090,57 +1046,36 @@
   }
 
   function applyZoom() {
-    elements.rawPages.style.zoom = String(state.zoom);
-    elements.suggestedPages.style.zoom = String(state.zoom);
+    elements.previewPages.style.zoom = String(state.zoom);
     elements.zoomLabel.textContent = `${Math.round(state.zoom * 100)}%`;
   }
 
   function fitToWindow(showMessage) {
     const metrics = getGridMetrics();
-    const paneWidth = Math.max(220, elements.rawScroll.clientWidth - 42);
-    const next = clamp(paneWidth / metrics.widthPx, 0.16, 0.8);
+    const paneWidth = Math.max(220, elements.previewScroll.clientWidth - 56);
+    const next = clamp(paneWidth / metrics.widthPx, 0.16, 0.9);
     setZoom(next);
     if (showMessage) showToast(`已适合窗口：${Math.round(next * 100)}%。`);
   }
 
   function updateNavigation() {
-    if (!state.layouts) {
-      elements.currentPageLabel.textContent = "1"; elements.pageCountLabel.textContent = "1"; return;
+    if (!state.layout) {
+      elements.currentPageLabel.textContent = "1"; elements.pageCountLabel.textContent = "1";
+      elements.prevPageBtn.disabled = true; elements.nextPageBtn.disabled = true; return;
     }
-    const maxCount = Math.max(state.layouts.raw.pages.length, state.layouts.squeeze.pages.length, state.layouts.shift.pages.length);
-    state.currentPage = clamp(state.currentPage, 0, Math.max(0, maxCount - 1));
+    const count = state.layout.pages.length;
+    state.currentPage = clamp(state.currentPage, 0, Math.max(0, count - 1));
     elements.currentPageLabel.textContent = String(state.currentPage + 1);
-    elements.pageCountLabel.textContent = String(maxCount);
+    elements.pageCountLabel.textContent = String(count);
     elements.prevPageBtn.disabled = state.currentPage <= 0;
-    elements.nextPageBtn.disabled = state.currentPage >= maxCount - 1;
+    elements.nextPageBtn.disabled = state.currentPage >= count - 1;
   }
 
-  function updateMobileView() {
-    elements.comparisonLayout.classList.toggle("show-raw", state.mobileView === "raw");
-    elements.comparisonLayout.classList.toggle("show-suggested", state.mobileView === "suggested");
-    elements.rawPane.classList.toggle("is-mobile-hidden", state.mobileView !== "raw");
-    elements.suggestedPane.classList.toggle("is-mobile-hidden", state.mobileView !== "suggested");
-    elements.mobileViewSwitch.querySelectorAll("button").forEach((button) => button.classList.toggle("is-active", button.dataset.mobileView === state.mobileView));
-  }
-
-  async function printReference(variant) {
-    if (!state.layouts) { showToast("请先导入文档。", "error"); return; }
-    const previousStyle = state.settings.correctionStyle;
-    if (variant === "shift" || variant === "squeeze") state.settings.correctionStyle = variant;
-    renderComparison();
-    state.printVariant = variant;
-    document.body.dataset.printVariant = variant;
-    elements.printMenu.classList.add("is-hidden");
-    elements.printBtn.setAttribute("aria-expanded", "false");
+  async function printReference() {
+    if (!state.layout) { showToast("请先导入文档。", "error"); return; }
     updatePrintStyle();
     await nextFrame();
     window.print();
-    window.setTimeout(() => {
-      document.body.removeAttribute("data-print-variant");
-      state.settings.correctionStyle = previousStyle;
-      syncControls();
-      renderComparison();
-    }, 650);
   }
 
   function updatePrintStyle() {
@@ -1149,59 +1084,47 @@
   }
 
   async function exportImages() {
-    if (!state.layouts) { showToast("请先导入文档。", "error"); return; }
-    showLoading("正在生成图片包", "正在绘制原样、同格压缩和整组移行三套稿纸");
+    if (!state.layout) { showToast("请先导入文档。", "error"); return; }
+    showLoading("正在生成图片", "正在绘制规范稿纸");
     try {
       await nextFrame();
       const metrics = getGridMetrics();
       const base = safeBaseName(state.fileName);
       const files = [];
-      const variants = [
-        ["原样", "raw"], ["建议-同格压缩", "squeeze"], ["建议-整组移行", "shift"]
-      ];
-      for (const [folder, variant] of variants) {
-        const layout = state.layouts[variant];
-        for (const page of layout.pages) {
-          const canvas = renderGridPageToCanvas(page, layout, variant, metrics, 2);
-          const blob = await canvasToBlob(canvas, "image/png");
-          files.push({ name:`${folder}/${base}-第${String(page.index + 1).padStart(2, "0")}页.png`, data:new Uint8Array(await blob.arrayBuffer()) });
-        }
+      for (const page of state.layout.pages) {
+        const canvas = renderGridPageToCanvas(page, metrics, 2);
+        const blob = await canvasToBlob(canvas, "image/png");
+        files.push({ name:`${base}-规范稿纸-第${String(page.index + 1).padStart(2, "0")}页.png`, data:new Uint8Array(await blob.arrayBuffer()) });
       }
-      downloadBlob(createZip(files), `${base}-稿纸参考图.zip`);
-      showToast(`已导出 ${files.length} 张稿纸参考图。`, "success");
+      if (files.length === 1) downloadBlob(new Blob([files[0].data], { type:"image/png" }), files[0].name);
+      else downloadBlob(createZip(files), `${base}-规范稿纸.zip`);
+      showToast(files.length === 1 ? "规范稿纸 PNG 已导出。" : `已导出 ${files.length} 页规范稿纸。`, "success");
     } catch (error) {
       console.error(error); showToast(`导出失败：${friendlyError(error)}`, "error");
     } finally { hideLoading(); }
   }
 
   async function exportPdf() {
-    if (!state.layouts) { showToast("请先导入文档。", "error"); return; }
-    showLoading("正在生成 PDF 包", "三套稿纸会分别生成独立 PDF");
+    if (!state.layout) { showToast("请先导入文档。", "error"); return; }
+    showLoading("正在生成 PDF", "正在绘制规范稿纸");
     try {
       await nextFrame();
       const metrics = getGridMetrics();
-      const base = safeBaseName(state.fileName);
-      const variants = [["原样", "raw"], ["建议-同格压缩", "squeeze"], ["建议-整组移行", "shift"]];
-      const zipFiles = [];
-      for (const [label, variant] of variants) {
-        const layout = state.layouts[variant];
-        const images = [];
-        for (const page of layout.pages) {
-          const canvas = renderGridPageToCanvas(page, layout, variant, metrics, 2);
-          const blob = await canvasToBlob(canvas, "image/jpeg", 0.93);
-          images.push({ data:new Uint8Array(await blob.arrayBuffer()), width:canvas.width, height:canvas.height });
-        }
-        const pdf = buildImagePdf(images, metrics.widthMm, metrics.heightMm);
-        zipFiles.push({ name:`${label}/${base}-${label}.pdf`, data:new Uint8Array(await pdf.arrayBuffer()) });
+      const images = [];
+      for (const page of state.layout.pages) {
+        const canvas = renderGridPageToCanvas(page, metrics, 2);
+        const blob = await canvasToBlob(canvas, "image/jpeg", 0.93);
+        images.push({ data:new Uint8Array(await blob.arrayBuffer()), width:canvas.width, height:canvas.height });
       }
-      downloadBlob(createZip(zipFiles), `${base}-稿纸参考PDF包.zip`);
-      showToast("已导出原样、同格压缩和整组移行三份 PDF。", "success");
+      const pdf = buildImagePdf(images, metrics.widthMm, metrics.heightMm);
+      downloadBlob(pdf, `${safeBaseName(state.fileName)}-规范稿纸.pdf`);
+      showToast(`已导出 ${state.layout.pages.length} 页规范稿纸 PDF。`, "success");
     } catch (error) {
       console.error(error); showToast(`PDF 导出失败：${friendlyError(error)}`, "error");
     } finally { hideLoading(); }
   }
 
-  function renderGridPageToCanvas(page, layout, variant, metrics, scale) {
+  function renderGridPageToCanvas(page, metrics, scale) {
     const canvas = document.createElement("canvas");
     canvas.width = Math.round(metrics.widthPx * scale); canvas.height = Math.round(metrics.heightPx * scale);
     const context = canvas.getContext("2d");
@@ -1209,15 +1132,15 @@
     context.fillStyle = "#fffdf7"; context.fillRect(0, 0, metrics.widthPx, metrics.heightPx);
     context.strokeStyle = state.settings.gridColor; context.lineWidth = 0.8;
     const gx = metrics.gridLeftPx, gy = metrics.gridTopPx, cw = metrics.cellPx, ch = metrics.cellPx;
-    const issueMap = buildCellMap(state.issues, page.index, variant === "raw" ? "raw" : "suggested");
+    const issueMap = buildCellMap(state.issues, page.index, "standard");
     for (let row = 0; row < metrics.rows; row += 1) {
       for (let col = 0; col < metrics.columns; col += 1) {
         const x = gx + col * cw, y = gy + row * ch;
-        if (variant === "raw" && issueMap.has(`${row}:${col}`)) {
-          context.fillStyle = "rgba(203,73,55,.16)"; context.fillRect(x, y, cw, ch);
-        }
-        if (variant !== "raw" && cellIsChanged(page, row, col)) {
-          context.fillStyle = "rgba(45,133,101,.15)"; context.fillRect(x, y, cw, ch);
+        const ids = issueMap.get(`${row}:${col}`);
+        if (ids?.length) {
+          const issue = state.issues.find((item) => item.id === ids[0]);
+          context.fillStyle = issue?.severity === "warning" ? "rgba(218,153,49,.16)" : "rgba(203,73,55,.17)";
+          context.fillRect(x, y, cw, ch);
         }
         context.strokeRect(x, y, cw, ch);
       }
@@ -1240,7 +1163,7 @@
     const width = token.width * metrics.cellPx;
     const type = blockData?.type || "body";
     context.save();
-    context.fillStyle = token.changed ? "#226c55" : "#151714";
+    context.fillStyle = "#151714";
     if (token.kind === "punctuationCluster") {
       const glyphs = Array.from(token.text);
       const columns = 2, rows = Math.ceil(glyphs.length / columns);
